@@ -4,7 +4,14 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-
+#include "pitches.h"
+ 
+// notes in the melody:
+int melody[] = {
+  NOTE_C5, NOTE_D5, NOTE_E5, NOTE_F5, NOTE_G5, NOTE_A5, NOTE_B5, NOTE_C6};
+int duration = 500;  // 500 miliseconds
+int player1Plus = 9;
+int player1Minus = 8;
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 
@@ -16,6 +23,7 @@
 #define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
 #define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
 #define SCREEN_ADDRESS_2 0x3D
+
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 Adafruit_SSD1306 display2(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
@@ -24,8 +32,14 @@ Adafruit_SSD1306 display2(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 #define LOGO_HEIGHT   16
 #define LOGO_WIDTH    16
-int PLAYER1_HEALTH = 20;
-int PLAYER2_HEALTH = 15;
+struct Player
+{
+  int health = 40;
+  int boss_damage = 0;
+  bool alive = true;
+  char name;
+}
+struct Player Player_1, Player_2;
 static const unsigned char PROGMEM logo_bmp[] =
 { 0b00000000, 0b11000000,
   0b00000001, 0b11000000,
@@ -47,33 +61,72 @@ static const unsigned char PROGMEM logo_bmp[] =
 void setup() {
   Serial.begin(9600);
   Serial.println("program started");
+  pinMode(player1Plus, INPUT_PULLUP);  
+  pinMode(player1Minus, INPUT_PULLUP); 
 
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
     for(;;); // Don't proceed, loop forever
   }
-
-    if(!display2.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS_2)) {
-    Serial.println(F("SSD1306 allocation failed"));
-    for(;;); // Don't proceed, loop forever
-  }
-
   // Show initial display buffer contents on the screen --
   // the library initializes this with an Adafruit splash screen.
   display.display();
-  display2.display();
   delay(2000); // Pause for 2 seconds
-
   // Clear the buffer
   display.clearDisplay();
-  display2.clearDisplay();
 
 }
 
 void loop() {
   displayPlayer1Health();
   displayPlayer2Health();
+  if (digitalRead(player1Plus) == LOW)
+  {
+    incrementPlayerHealth(Player_1);
+  }
+  if (digitalRead(buttonBpin) == LOW)
+  {
+    decrementPlayerHealth(Player_1);
+  }
+}
+
+void incrementPlayerHealth(player) {
+  player.health++
+}
+
+void decrementPlayerHealth(player) {
+  player.health--
+  if (player.health <= 0) {
+    player.alive = false;
+  }
+}
+
+void resetGame(void) {
+  Player_1.health = 40
+  Player_1.boss_damage = 0
+  Player_2.health = 40
+  Player_2.boss_damage = 0
+}
+
+void playDeathMusic(void) {
+  for (int thisNote = 0; thisNote < 8; thisNote++) {
+    // pin8 output the voice, every scale is 0.5 sencond
+    tone(8, melody[thisNote], duration);
+     
+    // Output the voice after several minutes
+    delay(1000);
+  }
+}
+
+void playerResetMusic(void) {
+  for (int thisNote = 0; thisNote < 8; thisNote++) {
+    // pin8 output the voice, every scale is 0.5 sencond
+    tone(8, melody[thisNote], duration);
+     
+    // Output the voice after several minutes
+    delay(1000);
+  }
 }
 
 
