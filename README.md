@@ -1,14 +1,15 @@
 # mtg-duino
 MTG Life counter and game assist module powered by Arduino
-Hardware:
-Arduino AtMega2500
-I2C Multiplexer for multiple Oleds with hardcoded address
-Buttons
-Passive buzzer
-124x32 sd_1306 OLED screens
+
+Current Hardware:
+1. Arduino AtMega2500
+2. I2C Multiplexer for multiple Oleds with hardcoded address
+3. Various buttons
+4. Passive buzzer
+5. 124x32 sd_1306 OLED screens
 
 
-IN-PROGRESS
+Features IN-PROGRESS
 1. Track life of 2-4 players
 2. Track and display player names that can be entered using external alpha-pad
 3. Reset game state button
