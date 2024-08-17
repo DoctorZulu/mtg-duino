@@ -7,11 +7,18 @@
 #include "pitches.h"
  
 // notes in the melody:
-int melody[] = {
-  NOTE_C5, NOTE_D5, NOTE_E5, NOTE_F5, NOTE_G5, NOTE_A5, NOTE_B5, NOTE_C6};
-int duration = 500;  // 500 miliseconds
+int resetMelody[] = {
+  NOTE_C5, NOTE_E5, NOTE_G5, NOTE_C6};
+int resetRhythm[] = { 100, 100, 100, 400 };
+int deathMelody[] = {
+  NOTE_DS4, NOTE_D4, NOTE_CS4, NOTE_C4
+};
+int deathRhythm[] = {1000, 1000, 1000, 2000};
+int duration = 100;  // 500 miliseconds
 int player1Plus = 2;
 int player1Minus = 3;
+int player2Plus = 0;
+int player2Minus = 1;
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 
@@ -38,6 +45,7 @@ struct Player
   int boss_damage = 0;
   bool alive = true;
   char name;
+  int display;
 };
 struct Player Player_1, Player_2;
 // 'skull-crossbones-outline-icon', 256x256px
@@ -81,9 +89,13 @@ void tcaselect(uint8_t i) {
 void setup() {
   Serial.begin(9600);
   Serial.println("program started");
-  Player_2.health = 30;
+  playResetMusic();
+  Player_1.display = 1;
+  Player_2.display = 2;
   pinMode(player1Plus, INPUT_PULLUP);  
-  pinMode(player1Minus, INPUT_PULLUP); 
+  pinMode(player1Minus, INPUT_PULLUP);
+  pinMode(player2Plus, INPUT_PULLUP);  
+  pinMode(player2Minus, INPUT_PULLUP);
 
   tcaselect(1);
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
@@ -128,6 +140,16 @@ void loop() {
     printf("minus hit");
     decrementPlayerHealth(Player_1);
   }
+  if (digitalRead(player2Plus) == LOW)
+  {
+    printf("plus hit");
+    incrementPlayerHealth(Player_2);
+  }
+  if (digitalRead(player2Minus) == LOW)
+  {
+    printf("minus hit");
+    decrementPlayerHealth(Player_2);
+  }
 }
 
 bool incrementPlayerHealth(Player &playerData) {
@@ -140,15 +162,16 @@ bool decrementPlayerHealth(Player &playerData) {
   playerData.health--;
   if (playerData.health <= 0) {
     playerData.alive = false;
-    animateDeath();
+    animateDeath(playerData.display);
     delay(5000);
+    resetGame();
   }
   delay(100);
   return true;
 }
 
-void animateDeath(void) {
-  tcaselect(1);
+void animateDeath(int displayNumber) {
+  tcaselect(displayNumber);
   display.clearDisplay();
 
   display.drawBitmap(
@@ -156,6 +179,7 @@ void animateDeath(void) {
     (display.height() - LOGO_HEIGHT) / 2,
     epd_bitmap, LOGO_WIDTH, LOGO_HEIGHT, 1);
   display.display();
+  playDeathMusic();
   delay(3000);
 }
 
@@ -164,25 +188,26 @@ void resetGame(void) {
   Player_1.boss_damage = 0;
   Player_2.health = 40;
   Player_2.boss_damage = 0;
+  playResetMusic();
 }
 
 void playDeathMusic(void) {
-  for (int thisNote = 0; thisNote < 8; thisNote++) {
+  for (int i = 0; i < 4; i++) {
     // pin8 output the voice, every scale is 0.5 sencond
-    tone(8, melody[thisNote], duration);
+    tone(8, deathMelody[i], deathRhythm[i]);
      
     // Output the voice after several minutes
-    delay(1000);
+    delay(deathRhythm[i]);
   }
 }
 
-void playerResetMusic(void) {
-  for (int thisNote = 0; thisNote < 8; thisNote++) {
+void playResetMusic(void) {
+  for (int i = 0; i < 4; i++) {
     // pin8 output the voice, every scale is 0.5 sencond
-    tone(8, melody[thisNote], duration);
+    tone(8, resetMelody[i], resetRhythm[i]);
      
     // Output the voice after several minutes
-    delay(1000);
+    delay(resetRhythm[i]);
   }
 }
 
@@ -197,6 +222,7 @@ void displayPlayer1Health(void) {
 }
 
 void displayPlayer2Health(void) {
+  display2.clearDisplay();
   display2.setTextSize(2);
   display2.setTextColor(SSD1306_WHITE);
   display2.setCursor(50, 10);
