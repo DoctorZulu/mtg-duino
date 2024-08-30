@@ -2,8 +2,10 @@
 
 #include <SPI.h>
 #include <Wire.h>
+#include <stdlib.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <time.h>
 #include "pitches.h"
  
 // notes in the melody:
@@ -17,9 +19,8 @@ int deathRhythm[] = {1000, 1000, 1000, 2000};
 int duration = 100;  // 500 miliseconds
 int player1Plus = 2;
 int player1Minus = 3;
-int player2Plus = 4;
-int player2Minus = 5;
-int buzzerPin = 6;
+int player2Plus = 0;
+int player2Minus = 1;
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 
@@ -49,6 +50,7 @@ struct Player
   int display;
 };
 struct Player Player_1, Player_2;
+bool showStart = false;
 // 'skull-crossbones-outline-icon', 256x256px
 const unsigned char epd_bitmap [] PROGMEM = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0xc0, 0x00, 0x00, 0x1f, 0xf8, 0x00, 0x00, 0x3f, 0xfc, 0x00, 
@@ -87,18 +89,23 @@ void tcaselect(uint8_t i) {
   Wire.endTransmission();
 }
 
+int returnRandomNumber(int numPlayers) {
+  return random(1, numPlayers + 1);
+}
+
 void setup() {
   Serial.begin(9600);
   Serial.println("program started");
-  playResetMusic();
-  Player_1.display = 0;
-  Player_2.display = 1;
+  //playResetMusic();
+  Player_1.display = 1;
+  Player_2.display = 2;
   pinMode(player1Plus, INPUT_PULLUP);  
   pinMode(player1Minus, INPUT_PULLUP);
   pinMode(player2Plus, INPUT_PULLUP);  
   pinMode(player2Minus, INPUT_PULLUP);
 
-  tcaselect(0);
+
+  tcaselect(1);
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
@@ -107,11 +114,11 @@ void setup() {
   // Show initial display buffer contents on the screen --
   // the library initializes this with an Adafruit splash screen.
   display.display();
-  delay(2000); // Pause for 2 seconds
+  delay(200); // Pause for 2 seconds
   // Clear the buffer
   display.clearDisplay();
 
-  tcaselect(1);
+  tcaselect(2);
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if(!display2.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
@@ -120,16 +127,22 @@ void setup() {
   // Show initial display buffer contents on the screen --
   // the library initializes this with an Adafruit splash screen.
   display2.display();
-  delay(2000); // Pause for 2 seconds
+  delay(200); // Pause for 2 seconds
   // Clear the buffer
   display2.clearDisplay();
-
+  delay(2000);
 }
 
 void loop() {
-  tcaselect(0);
-  displayPlayer1Health();
+  /* if (showStart == 1) {
+    Serial.print("showstart is true");
+    int startPlayer = returnRandomNumber(3);
+    displayFirst(startPlayer);
+    showStart = false;
+  }; */
   tcaselect(1);
+  displayPlayer1Health();
+  tcaselect(2);
   displayPlayer2Health();
   if (digitalRead(player1Plus) == LOW)
   {
@@ -174,28 +187,61 @@ bool decrementPlayerHealth(Player &playerData) {
 void animateDeath(int displayNumber) {
   tcaselect(displayNumber);
   display.clearDisplay();
-
   display.drawBitmap(
     (display.width()  - LOGO_WIDTH ) / 2,
     (display.height() - LOGO_HEIGHT) / 2,
     epd_bitmap, LOGO_WIDTH, LOGO_HEIGHT, 1);
   display.display();
   playDeathMusic();
-  delay(3000);
+  display.startscrollright(0x00, 0x0F);
+  delay(1000);
+  display.stopscroll();
+  delay(1000);
+  display.startscrollleft(0x00, 0x0F);
+  delay(2000);
+  display.stopscroll();
+/*   delay(1000);
+  display.startscrolldiagright(0x00, 0x07);
+  delay(2000);
+  display.startscrolldiagleft(0x00, 0x07);
+  delay(2000);
+  display.stopscroll(); */
+  delay(1000);
 }
 
+void displayFirst(int displayNumber) {
+  tcaselect(displayNumber);
+  if (displayNumber == 1) {
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(10, 5);
+    display.print("You are first!");
+    display.display();
+  } else {
+    display2.clearDisplay();
+    display2.setTextSize(1);
+    display2.setTextColor(SSD1306_WHITE);
+    display2.setCursor(10, 5);
+    display2.print("You are first!");
+    display2.display();
+  };
+  delay(5000);
+}
+//void clearAllDisplays(int numPlayers)
 void resetGame(void) {
   Player_1.health = 40;
   Player_1.boss_damage = 0;
   Player_2.health = 40;
   Player_2.boss_damage = 0;
-  playResetMusic();
+  //playResetMusic();
+  showStart = true;
 }
 
 void playDeathMusic(void) {
   for (int i = 0; i < 4; i++) {
     // pin8 output the voice, every scale is 0.5 sencond
-    tone(buzzerPin, deathMelody[i], deathRhythm[i]);
+    tone(8, deathMelody[i], deathRhythm[i]);
      
     // Output the voice after several minutes
     delay(deathRhythm[i]);
@@ -205,7 +251,7 @@ void playDeathMusic(void) {
 void playResetMusic(void) {
   for (int i = 0; i < 4; i++) {
     // pin8 output the voice, every scale is 0.5 sencond
-    tone(buzzerPin, resetMelody[i], resetRhythm[i]);
+    tone(8, resetMelody[i], resetRhythm[i]);
      
     // Output the voice after several minutes
     delay(resetRhythm[i]);
