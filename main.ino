@@ -17,8 +17,9 @@ int deathRhythm[] = {1000, 1000, 1000, 2000};
 int duration = 100;  // 500 miliseconds
 int player1Plus = 2;
 int player1Minus = 3;
-int player2Plus = 0;
-int player2Minus = 1;
+int player2Plus = 4;
+int player2Minus = 5;
+int buzzerPin = 6;
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 
@@ -90,14 +91,14 @@ void setup() {
   Serial.begin(9600);
   Serial.println("program started");
   playResetMusic();
-  Player_1.display = 1;
-  Player_2.display = 2;
+  Player_1.display = 0;
+  Player_2.display = 1;
   pinMode(player1Plus, INPUT_PULLUP);  
   pinMode(player1Minus, INPUT_PULLUP);
   pinMode(player2Plus, INPUT_PULLUP);  
   pinMode(player2Minus, INPUT_PULLUP);
 
-  tcaselect(1);
+  tcaselect(0);
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
@@ -110,7 +111,7 @@ void setup() {
   // Clear the buffer
   display.clearDisplay();
 
-  tcaselect(2);
+  tcaselect(1);
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if(!display2.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
@@ -126,9 +127,9 @@ void setup() {
 }
 
 void loop() {
-  tcaselect(1);
+  tcaselect(0);
   displayPlayer1Health();
-  tcaselect(2);
+  tcaselect(1);
   displayPlayer2Health();
   if (digitalRead(player1Plus) == LOW)
   {
@@ -194,7 +195,7 @@ void resetGame(void) {
 void playDeathMusic(void) {
   for (int i = 0; i < 4; i++) {
     // pin8 output the voice, every scale is 0.5 sencond
-    tone(8, deathMelody[i], deathRhythm[i]);
+    tone(buzzerPin, deathMelody[i], deathRhythm[i]);
      
     // Output the voice after several minutes
     delay(deathRhythm[i]);
@@ -204,7 +205,7 @@ void playDeathMusic(void) {
 void playResetMusic(void) {
   for (int i = 0; i < 4; i++) {
     // pin8 output the voice, every scale is 0.5 sencond
-    tone(8, resetMelody[i], resetRhythm[i]);
+    tone(buzzerPin, resetMelody[i], resetRhythm[i]);
      
     // Output the voice after several minutes
     delay(resetRhythm[i]);
