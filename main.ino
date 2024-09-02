@@ -4,6 +4,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <BlockNot.h>
 #include "pitches.h"
  
 // notes in the melody:
@@ -14,7 +15,7 @@ int deathMelody[] = {
   NOTE_DS4, NOTE_D4, NOTE_CS4, NOTE_C4
 };
 int deathRhythm[] = {1000, 1000, 1000, 2000};
-int duration = 100;  // 500 miliseconds
+int duration = 100;  // 100 miliseconds
 int player1Plus = 2;
 int player1Minus = 3;
 int player2Plus = 4;
@@ -49,6 +50,7 @@ struct Player
   int display;
 };
 struct Player Player_1, Player_2;
+bool showStart = false;
 // 'skull-crossbones-outline-icon', 256x256px
 const unsigned char epd_bitmap [] PROGMEM = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0xc0, 0x00, 0x00, 0x1f, 0xf8, 0x00, 0x00, 0x3f, 0xfc, 0x00, 
@@ -87,6 +89,10 @@ void tcaselect(uint8_t i) {
   Wire.endTransmission();
 }
 
+int returnRandomNumber(int numPlayers) {
+  return random(1, numPlayers + 1);
+}
+
 void setup() {
   Serial.begin(9600);
   Serial.println("program started");
@@ -123,6 +129,8 @@ void setup() {
   delay(2000); // Pause for 2 seconds
   // Clear the buffer
   display2.clearDisplay();
+  int r_display = returnRandomNumber(2);
+  displayFirst(r_display);
 
 }
 
@@ -153,6 +161,38 @@ void loop() {
   }
 }
 
+void displayFirst(int displayNumber) {
+  displayCountdown();
+  delay(100);
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(10, 5);
+  display2.clearDisplay();
+  display2.setTextSize(1);
+  display2.setTextColor(SSD1306_WHITE);
+  display2.setCursor(10, 5);
+  tcaselect(0);
+  if (displayNumber == 1) {
+    tcaselect(0);
+    display.clearDisplay();
+    display.print("You are first!");
+    display.display();
+    tcaselect(1);
+    display2.clearDisplay();
+    display2.print("Womp Womp!");
+    display2.display();
+  } else {
+    tcaselect(1);
+    display2.print("You are first!");
+    display2.display();
+    tcaselect(0);
+    display.clearDisplay();
+    display.print("Womp Womp");
+    display.display();
+  };
+  delay(5000);
+}
+
 bool incrementPlayerHealth(Player &playerData) {
   playerData.health++;
   delay(100);
@@ -164,24 +204,10 @@ bool decrementPlayerHealth(Player &playerData) {
   if (playerData.health <= 0) {
     playerData.alive = false;
     animateDeath(playerData.display);
-    delay(5000);
     resetGame();
   }
   delay(100);
   return true;
-}
-
-void animateDeath(int displayNumber) {
-  tcaselect(displayNumber);
-  display.clearDisplay();
-
-  display.drawBitmap(
-    (display.width()  - LOGO_WIDTH ) / 2,
-    (display.height() - LOGO_HEIGHT) / 2,
-    epd_bitmap, LOGO_WIDTH, LOGO_HEIGHT, 1);
-  display.display();
-  playDeathMusic();
-  delay(3000);
 }
 
 void resetGame(void) {
@@ -189,25 +215,86 @@ void resetGame(void) {
   Player_1.boss_damage = 0;
   Player_2.health = 40;
   Player_2.boss_damage = 0;
-  playResetMusic();
+  //playResetMusic();
+  showStart = true;
+}
+
+void displayCountdown(void) {
+  tcaselect(0);
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(10, 5);
+  display.print("Rolling for first!");
+  display.display();
+  tcaselect(1);
+  display2.clearDisplay();
+  display2.setTextSize(1);
+  display2.setTextColor(SSD1306_WHITE);
+  display2.setCursor(10, 5);
+  display2.print("Rolling for first!");
+  display2.display();
+  delay(2000);
+  for (int i = 5; i > 0; i--) {
+    tcaselect(0);
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(10, 5);
+    display.print(i);
+    display.display();
+    tcaselect(1);
+    display2.clearDisplay();
+    display2.setTextSize(2);
+    display2.setTextColor(SSD1306_WHITE);
+    display2.setCursor(10, 5);
+    display2.print(i);
+    display2.display();
+    delay(500);
+  }
+}
+
+void animateDeath(int displayNumber) {
+  tcaselect(displayNumber);
+  display.clearDisplay();
+  display.drawBitmap(
+    (display.width()  - LOGO_WIDTH ) / 2,
+    (display.height() - LOGO_HEIGHT) / 2,
+    epd_bitmap, LOGO_WIDTH, LOGO_HEIGHT, 1);
+  display.display();
+  playDeathMusic();
+  display.startscrollright(0x00, 0x0F);
+  delay(1000);
+  display.stopscroll();
+  delay(1000);
+  display.startscrollleft(0x00, 0x0F);
+  delay(2000);
+  display.stopscroll();
+/*   delay(1000);
+  display.startscrolldiagright(0x00, 0x07);
+  delay(2000);
+  display.startscrolldiagleft(0x00, 0x07);
+  delay(2000);
+  display.stopscroll(); */
+  delay(1000);
 }
 
 void playDeathMusic(void) {
   for (int i = 0; i < 4; i++) {
-    // pin8 output the voice, every scale is 0.5 sencond
+    // output the voice and use duration from array
     tone(buzzerPin, deathMelody[i], deathRhythm[i]);
      
-    // Output the voice after several minutes
+    // Output the voice after some time
     delay(deathRhythm[i]);
   }
 }
 
 void playResetMusic(void) {
   for (int i = 0; i < 4; i++) {
-    // pin8 output the voice, every scale is 0.5 sencond
+    // output the voice and use duration from array
     tone(buzzerPin, resetMelody[i], resetRhythm[i]);
      
-    // Output the voice after several minutes
+    // Output the voice after some time
     delay(resetRhythm[i]);
   }
 }
