@@ -28,10 +28,12 @@ int deathMelody[] = {
   NOTE_DS4, NOTE_D4, NOTE_CS4, NOTE_C4
 };
 int deathRhythm[] = {1000, 1000, 1000, 2000};
+
 int duration = 100;  // 500 miliseconds
 int player1Minus = 7;
 int player1Plus = 10;
 int player2Minus = 3;
+
 int player2Plus = 4;
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -190,9 +192,14 @@ void setup() {
   delay(200); // Pause for 2 seconds
   // Clear the buffer
   display2.clearDisplay();
+  
+  int r_display = returnRandomNumber(2);
+  displayFirst(r_display);
+
   server.onNotFound(notFound);
   server.begin();
   //delay(2000);
+
 }
 
 void loop() {
@@ -228,6 +235,38 @@ void loop() {
   }
 }
 
+void displayFirst(int displayNumber) {
+  displayCountdown();
+  delay(100);
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(10, 5);
+  display2.clearDisplay();
+  display2.setTextSize(1);
+  display2.setTextColor(SSD1306_WHITE);
+  display2.setCursor(10, 5);
+  tcaselect(0);
+  if (displayNumber == 1) {
+    tcaselect(0);
+    display.clearDisplay();
+    display.print("You are first!");
+    display.display();
+    tcaselect(1);
+    display2.clearDisplay();
+    display2.print("Womp Womp!");
+    display2.display();
+  } else {
+    tcaselect(1);
+    display2.print("You are first!");
+    display2.display();
+    tcaselect(0);
+    display.clearDisplay();
+    display.print("Womp Womp");
+    display.display();
+  };
+  delay(5000);
+}
+
 bool incrementPlayerHealth(Player &playerData) {
   playerData.health++;
   delay(100);
@@ -239,11 +278,54 @@ bool decrementPlayerHealth(Player &playerData) {
   if (playerData.health <= 0) {
     playerData.alive = false;
     animateDeath(playerData.display);
-    delay(5000);
     resetGame();
   }
   delay(100);
   return true;
+}
+
+void resetGame(void) {
+  Player_1.health = 40;
+  Player_1.boss_damage = 0;
+  Player_2.health = 40;
+  Player_2.boss_damage = 0;
+  //playResetMusic();
+  showStart = true;
+}
+
+void displayCountdown(void) {
+  tcaselect(0);
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(10, 5);
+  display.print("Rolling for first!");
+  display.display();
+  tcaselect(1);
+  display2.clearDisplay();
+  display2.setTextSize(1);
+  display2.setTextColor(SSD1306_WHITE);
+  display2.setCursor(10, 5);
+  display2.print("Rolling for first!");
+  display2.display();
+  delay(2000);
+  for (int i = 5; i > 0; i--) {
+    tcaselect(0);
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(10, 5);
+    display.print(i);
+    display.display();
+    tcaselect(1);
+    display2.clearDisplay();
+    display2.setTextSize(2);
+    display2.setTextColor(SSD1306_WHITE);
+    display2.setCursor(10, 5);
+    display2.print(i);
+    display2.display();
+    delay(500);
+  }
 }
 
 void animateDeath(int displayNumber) {
@@ -269,6 +351,7 @@ void animateDeath(int displayNumber) {
   delay(2000);
   display.stopscroll(); */
   delay(1000);
+
 }
 
 void displayFirst(int displayNumber) {
@@ -302,20 +385,19 @@ void resetGame(void) {
 
 void playDeathMusic(void) {
   for (int i = 0; i < 4; i++) {
-    // pin8 output the voice, every scale is 0.5 sencond
-    tone(6, deathMelody[i], deathRhythm[i]);
-     
-    // Output the voice after several minutes
+    // output the voice and use duration from array
+    tone(buzzerPin, deathMelody[i], deathRhythm[i]);
+    // Output the voice after some time
     delay(deathRhythm[i]);
   }
 }
 
 void playResetMusic(void) {
   for (int i = 0; i < 4; i++) {
+
     // pin8 output the voice, every scale is 0.5 sencond
-    tone(6, resetMelody[i], resetRhythm[i]);
-     
-    // Output the voice after several minutes
+    tone(buzzerPin, resetMelody[i], resetRhythm[i]);
+    // Output the voice after some time
     delay(resetRhythm[i]);
   }
 }
