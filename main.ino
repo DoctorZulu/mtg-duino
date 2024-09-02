@@ -2,10 +2,23 @@
 
 #include <SPI.h>
 #include <Wire.h>
+#include <stdlib.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <BlockNot.h>
+#include <time.h>
+#include <Arduino.h>
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 #include "pitches.h"
+
+AsyncWebServer server(80);
+
+const char* ssid = "";
+const char* password = "";
+
+const char* PARAM_MESSAGE = "message";
+
  
 // notes in the melody:
 int resetMelody[] = {
@@ -15,12 +28,14 @@ int deathMelody[] = {
   NOTE_DS4, NOTE_D4, NOTE_CS4, NOTE_C4
 };
 int deathRhythm[] = {1000, 1000, 1000, 2000};
-int duration = 100;  // 100 miliseconds
-int player1Plus = 2;
-int player1Minus = 3;
+
+int duration = 100;  // 500 miliseconds
+int player1Minus = 7;
+int player1Plus = 10;
+int player2Minus = 3;
+
 int player2Plus = 4;
-int player2Minus = 5;
-int buzzerPin = 6;
+
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 
@@ -81,6 +96,38 @@ static const unsigned char PROGMEM logo_bmp[] =
   0b01110000, 0b01110000,
   0b00000000, 0b00110000 };
 
+const char index_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE HTML><html>
+<head>
+  <title>Dan's MTG Health Counter Helper</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <style>
+    html {font-family: Arial; display: inline-block; text-align: center;}
+    h2 {font-size: 3.0rem;}
+    p {font-size: 3.0rem;}
+    body {max-width: 600px; margin:0px auto; padding-bottom: 25px;}
+    button {background-color: #04AA6D;border: none;color: white;padding: 15px 32px;text-align: center;text-decoration: none;display: inline-block;font-size: 16px;
+}
+  </style>
+</head>
+<body>
+  <h2>Dan's MTG Health Counter Helper</h2>
+  <button onclick="toggleReset()">Reset Game</button>
+<script>function toggleReset() {
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "/reset", true)
+  xhr.send();
+}
+</script>
+</body>
+</html>
+)rawliteral";
+
+void notFound(AsyncWebServerRequest *request) {
+    request->send(404, "text/plain", "Not found");
+}
+
 void tcaselect(uint8_t i) {
   if (i > 7) return;
 
@@ -94,8 +141,23 @@ int returnRandomNumber(int numPlayers) {
 }
 
 void setup() {
-  Serial.begin(9600);
-  Serial.println("program started");
+  Serial.begin(115200);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
+      Serial.printf("WiFi Failed!\n");
+      return;
+  }
+
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/html", index_html);
+  });
+  server.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request){
+    playResetMusic();
+    request->send(200, "text/plain", "Hello, world");
+  });
   playResetMusic();
   Player_1.display = 0;
   Player_2.display = 1;
@@ -103,6 +165,7 @@ void setup() {
   pinMode(player1Minus, INPUT_PULLUP);
   pinMode(player2Plus, INPUT_PULLUP);  
   pinMode(player2Minus, INPUT_PULLUP);
+
 
   tcaselect(0);
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
@@ -113,7 +176,7 @@ void setup() {
   // Show initial display buffer contents on the screen --
   // the library initializes this with an Adafruit splash screen.
   display.display();
-  delay(2000); // Pause for 2 seconds
+  //delay(200); // Pause for 2 seconds
   // Clear the buffer
   display.clearDisplay();
 
@@ -126,15 +189,26 @@ void setup() {
   // Show initial display buffer contents on the screen --
   // the library initializes this with an Adafruit splash screen.
   display2.display();
-  delay(2000); // Pause for 2 seconds
+  delay(200); // Pause for 2 seconds
   // Clear the buffer
   display2.clearDisplay();
+  
   int r_display = returnRandomNumber(2);
   displayFirst(r_display);
+
+  server.onNotFound(notFound);
+  server.begin();
+  //delay(2000);
 
 }
 
 void loop() {
+  /* if (showStart == 1) {
+    Serial.print("showstart is true");
+    int startPlayer = returnRandomNumber(3);
+    displayFirst(startPlayer);
+    showStart = false;
+  }; */
   tcaselect(0);
   displayPlayer1Health();
   tcaselect(1);
@@ -277,13 +351,42 @@ void animateDeath(int displayNumber) {
   delay(2000);
   display.stopscroll(); */
   delay(1000);
+
+}
+
+void displayFirst(int displayNumber) {
+  tcaselect(displayNumber);
+  if (displayNumber == 1) {
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(10, 5);
+    display.print("You are first!");
+    display.display();
+  } else {
+    display2.clearDisplay();
+    display2.setTextSize(1);
+    display2.setTextColor(SSD1306_WHITE);
+    display2.setCursor(10, 5);
+    display2.print("You are first!");
+    display2.display();
+  };
+  delay(5000);
+}
+//void clearAllDisplays(int numPlayers)
+void resetGame(void) {
+  Player_1.health = 40;
+  Player_1.boss_damage = 0;
+  Player_2.health = 40;
+  Player_2.boss_damage = 0;
+  //playResetMusic();
+  showStart = true;
 }
 
 void playDeathMusic(void) {
   for (int i = 0; i < 4; i++) {
     // output the voice and use duration from array
     tone(buzzerPin, deathMelody[i], deathRhythm[i]);
-     
     // Output the voice after some time
     delay(deathRhythm[i]);
   }
@@ -291,9 +394,9 @@ void playDeathMusic(void) {
 
 void playResetMusic(void) {
   for (int i = 0; i < 4; i++) {
-    // output the voice and use duration from array
+
+    // pin8 output the voice, every scale is 0.5 sencond
     tone(buzzerPin, resetMelody[i], resetRhythm[i]);
-     
     // Output the voice after some time
     delay(resetRhythm[i]);
   }
