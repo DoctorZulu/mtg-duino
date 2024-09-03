@@ -8,6 +8,16 @@ MTG Life counter and game assist circuit powered by Arduino ESP32 Nano
 4. Passive buzzer
 5. 124x32 sd_1306 OLED screens
 
+## Required Libraries
+1. SPI
+2. Wire
+3. Adafruit_GFX
+4. Adafruit_SSD1306
+5. pitches
+6. Wifi
+7. AsyncTCP
+8. ESPAsyncWebServer
+
 ## Current Features
 1. Track and display life of 2 players
 2. Track and display player names
