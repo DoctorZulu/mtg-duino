@@ -9,13 +9,14 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <AsyncTCP.h>
+#include "vars.h"
 #include <ESPAsyncWebServer.h>
 #include "pitches.h"
 
 AsyncWebServer server(80);
 
-const char* ssid = "";
-const char* password = "";
+const char* ssid = SSID;
+const char* password = PASSWORD;
 
 const char* PARAM_INPUT_1 = "player";
 const char* PARAM_INPUT_2 = "name";
@@ -31,8 +32,10 @@ int deathRhythm[] = {500, 500, 500, 100, 100, 150, 200, 250, 300, 400, 500, 2000
 int duration = 100;  // 500 miliseconds
 int player1Minus = 7;
 int player1Plus = 10;
+int player1Alt = 5;
 int player2Minus = 3;
 int player2Plus = 4;
+int player2Alt = 2;
 
 int buzzerPin = 6;
 
@@ -47,19 +50,19 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 Adafruit_SSD1306 display2(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-#define NUMFLAKES     10 // Number of snowflakes in the animation example
-
 #define LOGO_HEIGHT   32
 #define LOGO_WIDTH    32
 struct Player
 {
   unsigned int health = 40;
-  int boss_damage = 0;
+  int cmdr_damage = 0;
   bool alive = true;
   String name;
   int display;
+  bool screenState = 0;
 };
-struct Player Player_1, Player_2;
+//struct Player Player_1, Player_2;
+Player players[2]; // Array of 3 Student structs
 bool showStart = false;
 // 'skull-crossbones-outline-icon', 256x256px
 const unsigned char epd_bitmap [] PROGMEM = {
@@ -109,9 +112,24 @@ const char index_html[] PROGMEM = R"rawliteral(
 <body>
   <h2>Dan's MTG Health Counter Helper</h2>
   <button onclick="toggleReset()">Reset Game</button>
-<script>function toggleReset() {
+
+  <div>
+    <input id="pName" name="pName"></input>
+    <input id="pNumber" name="pNumber"></input>
+    <button onclick="setName()">Set Name</button>
+  </div>
+  
+<script>
+function toggleReset() {
   var xhr = new XMLHttpRequest();
   xhr.open("GET", "/reset", true)
+  xhr.send();
+}
+function setName() {
+  var xhr = new XMLHttpRequest();
+  let pName = document.getElementById("pName).value;
+  let pNumber = document.getElementById("pNumber).value;
+  xhr.open("GET", "/update_name?player=" + pNumber + "&name=" + pName, true)
   xhr.send();
 }
 </script>
@@ -161,8 +179,11 @@ void setup() {
     if (request->hasParam(PARAM_INPUT_1) && request->hasParam(PARAM_INPUT_2)) {
       inputMessage1 = request->getParam(PARAM_INPUT_1)->value();
       inputMessage2 = request->getParam(PARAM_INPUT_2)->value();
-      updatePlayerName(inputMessage2, Player_1);
-      Serial.print(Player_1.name);
+      if (inputMessage1 == 1) {
+        char playerName = "Player_" + inputMessage1;
+        updatePlayerName(inputMessage2, playerName);
+        Serial.print(Player_1.name);
+      }
     }
     else {
       Serial.printf("No Param sent\n");
@@ -215,34 +236,69 @@ void setup() {
 
 void loop() {
   tcaselect(0);
-  displayPlayer1Health();
+  if (Player_1.screenState == 0){
+    displayPlayer1Health();
+  } else {
+    displayPlayer1CmdrDamage();
+  }
   tcaselect(1);
-  displayPlayer2Health();
+  if (Player_2.screenState == 0){
+    displayPlayer2Health();
+  } else {
+    displayPlayer2CmdrDamage();
+  }
+  if (digitalRead(player1Alt) == LOW)
+  {
+    Serial.println("screenstate changed");
+    toggleScreen(Player_1);
+  }
+  if (digitalRead(player2Alt) == LOW)
+  {
+    Serial.println("screenstate changed");
+    toggleScreen(Player_2);
+  }
   if (digitalRead(player1Plus) == LOW)
   {
-    printf("plus hit");
-    incrementPlayerHealth(Player_1);
+    if (Player_1.screenState == 0) {
+      incrementPlayerHealth(Player_1);
+    } else {
+      incrementCmdrDamage(Player_1);
+    }
   }
   if (digitalRead(player1Minus) == LOW)
   {
-    printf("minus hit");
-    decrementPlayerHealth(Player_1);
+    if (Player_1.screenState == 0) {
+      decrementPlayerHealth(Player_1);
+    } else {
+      decrementCmdrDamage(Player_1);
+    }
   }
   if (digitalRead(player2Plus) == LOW)
   {
-    printf("plus hit");
-    incrementPlayerHealth(Player_2);
+    if (Player_1.screenState == 0) {
+      incrementPlayerHealth(Player_2);
+    } else {
+      incrementCmdrDamage(Player_2);
+    }
   }
   if (digitalRead(player2Minus) == LOW)
   {
-    printf("minus hit");
-    decrementPlayerHealth(Player_2);
+    if (Player_2.screenState == 0) {
+      decrementPlayerHealth(Player_2);
+    } else {
+      decrementCmdrDamage(Player_2);
+    }
   }
 }
 
+void toggleScreen(Player &playerData) {
+    playerData.screenState = !playerData.screenState;
+    delay(100);
+}
 void updatePlayerName(String playerName, Player &playerData) {
   playerData.name = playerName;
 }
+
 void displayFirst(int displayNumber) {
   displayCountdown();
   delay(100);
@@ -280,6 +336,18 @@ bool incrementPlayerHealth(Player &playerData) {
   return true;
 }
 
+bool incrementCmdrDamage(Player &playerData) {
+  playerData.health--;
+  playerData.cmdr_damage++;
+  if (playerData.cmdr_damage >= 21) {
+    playerData.alive = false;
+    animateDeath(playerData.display);
+    resetGame();
+  }
+  delay(100);
+  return true;
+}
+
 bool decrementPlayerHealth(Player &playerData) {
   playerData.health--;
   if (playerData.health <= 0) {
@@ -291,11 +359,20 @@ bool decrementPlayerHealth(Player &playerData) {
   return true;
 }
 
+bool decrementCmdrDamage(Player &playerData) {
+  playerData.health++;
+  playerData.cmdr_damage--;
+  delay(100);
+  return true;
+}
+
 void resetGame(void) {
   Player_1.health = 40;
-  Player_1.boss_damage = 0;
+  Player_1.cmdr_damage = 0;
+  Player_1.screenState = 0;
   Player_2.health = 40;
-  Player_2.boss_damage = 0;
+  Player_2.cmdr_damage = 0;
+  Player_2.screenState = 0;
   playResetMusic();
   showStart = true;
 }
@@ -321,14 +398,14 @@ void displayCountdown(void) {
     display.clearDisplay();
     display.setTextSize(2);
     display.setTextColor(SSD1306_WHITE);
-    display.setCursor(10, 5);
+    display.setCursor(50, 10);
     display.print(i);
     display.display();
     tcaselect(1);
     display2.clearDisplay();
     display2.setTextSize(2);
     display2.setTextColor(SSD1306_WHITE);
-    display2.setCursor(10, 5);
+    display2.setCursor(50, 10);
     display2.print(i);
     display2.display();
     delay(500);
@@ -391,5 +468,29 @@ void displayPlayer2Health(void) {
   display2.setTextColor(SSD1306_WHITE);
   display2.setCursor(50, 10);
   display2.print(Player_2.health);
+  display2.display();
+}
+
+void displayPlayer1CmdrDamage(void) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(5,10);
+  display.print("CMDR:");
+  display.setTextSize(2);
+  display.setCursor(50, 10);
+  display.print(Player_1.cmdr_damage);
+  display.display();
+}
+
+void displayPlayer2CmdrDamage(void) {
+  display2.clearDisplay();
+  display2.setTextSize(1);
+  display2.setTextColor(SSD1306_WHITE);
+  display2.setCursor(5,10);
+  display2.print("CMDR:");
+  display2.setTextSize(2);
+  display2.setCursor(50, 10);
+  display2.print(Player_2.cmdr_damage);
   display2.display();
 }
