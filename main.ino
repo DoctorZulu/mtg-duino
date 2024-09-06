@@ -314,6 +314,12 @@ void updatePlayerName(String playerName, Player &playerData) {
   playerData.name = playerName;
 }
 
+void setDisplayOpt(int displayNumber, int textSize, char textColor, int cursorX, int cursorY) {
+	displays[displayNumber].setTextSize(textSize);
+	displays[displayNumber].setTextColor(textColor);
+	displays[displayNumber].setCursor(cursorX, cursorY);
+}
+
 void displayFirst(int displayNumber) {
   displayCountdown();
   delay(100);
