@@ -233,7 +233,8 @@ function setName() {
 </html>
 )rawliteral";
 
-unsigned long timer = 0; // the time the delay started
+unsigned long animation_timer = 0; // the time the delay started
+unsigned long button_timer = 0; // the time the delay started
 int delay_interval = 200;
 
 int r_display = 0;
@@ -257,14 +258,14 @@ void tcaselect(uint8_t i) {
 }
 
 int returnRandomNumber(int numPlayers) {
-  return random(1, numPlayers + 1);
+  return random(0, numPlayers);
 }
 
 void setup() {
-  //delay(10000);
   Serial.begin(115200);
   Serial.print("setup online");
-  timer = millis();   // start delay for non blocking functions
+  button_timer = millis();   // start delay for non blocking functions
+  animation_timer = millis();
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   if (WiFi.waitForConnectResult() != WL_CONNECTED) {
@@ -312,9 +313,6 @@ void setup() {
     }
     // Show initial display buffer contents on the screen --
     // the library initializes this with an Adafruit splash screen.
-    /* displays[i].display();
-    delay(200);
-    displays[i].clearDisplay(); */
   }
   server.onNotFound(notFound);
   server.begin();
@@ -336,7 +334,7 @@ void loop() {
     display_rolloff = false;
   }
   //handle non blocking first/second animations
-  if (display_first == true && ((currentTime - timer) >= FRAME_DELAY)) {
+  if (display_first == true && ((currentTime - animation_timer) >= FRAME_DELAY)) {
       tcaselect(r_display);
       displays[r_display].clearDisplay();
       displays[r_display].drawBitmap(32, 0, first_frames[frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
@@ -363,6 +361,7 @@ void loop() {
           frame = 0;
         }
       }
+      animation_timer = currentTime;
   }
 
   //Handle main health displays
@@ -385,53 +384,53 @@ void loop() {
   }
   
 
-  if ((digitalRead(player1Alt) == LOW) && ((currentTime - timer) >= delay_interval))
+  if ((digitalRead(player1Alt) == LOW) && ((currentTime - button_timer) >= delay_interval))
   {
     Serial.println("screenstate changed");
     toggleScreen(players[0]);
-    timer = currentTime;
+    button_timer = currentTime;
   }
-  if (digitalRead(player2Alt) == LOW && ((currentTime - timer) >= delay_interval))
+  if (digitalRead(player2Alt) == LOW && ((currentTime - button_timer) >= delay_interval))
   {
     Serial.println("screenstate changed");
     toggleScreen(players[1]);
-    timer = currentTime;
+    button_timer = currentTime;
   }
-  if (digitalRead(player1Plus) == LOW && ((currentTime - timer) >= delay_interval))
+  if (digitalRead(player1Plus) == LOW && ((currentTime - button_timer) >= delay_interval))
   {
     if (players[0].screenState == 0) {
       incrementPlayerHealth(players[0]);
     } else {
       incrementCmdrDamage(players[0]);
     }
-    timer = currentTime;
+    button_timer = currentTime;
   }
-  if (digitalRead(player1Minus) == LOW && ((currentTime - timer) >= delay_interval))
+  if (digitalRead(player1Minus) == LOW && ((currentTime - button_timer) >= delay_interval))
   {
     if (players[0].screenState == 0) {
       decrementPlayerHealth(players[0]);
     } else {
       decrementCmdrDamage(players[0]);
     }
-    timer = currentTime;
+    button_timer = currentTime;
   }
-  if (digitalRead(player2Plus) == LOW && ((currentTime - timer) >= delay_interval))
+  if (digitalRead(player2Plus) == LOW && ((currentTime - button_timer) >= delay_interval))
   {
     if (players[1].screenState == 0) {
       incrementPlayerHealth(players[1]);
     } else {
       incrementCmdrDamage(players[1]);
     }
-    timer = currentTime;
+    button_timer = currentTime;
   }
-  if (digitalRead(player2Minus) == LOW && ((currentTime - timer) >= delay_interval))
+  if (digitalRead(player2Minus) == LOW && ((currentTime - button_timer) >= delay_interval))
   {
     if (players[1].screenState == 0) {
       decrementPlayerHealth(players[1]);
     } else {
       decrementCmdrDamage(players[1]);
     }
-    timer = currentTime;
+    button_timer = currentTime;
   }
 }
 
@@ -514,9 +513,12 @@ void resetGame(void) {
   players[1].health = 20;
   players[1].cmdr_damage = 0;
   players[1].screenState = 0;
-  display_first = true;
-  display_rolloff = true;
   playResetMusic();
+  r_display = returnRandomNumber(2);
+  display_rolloff = true;
+  display_first = true;
+  frame = 0;
+  animate_r = 0;
 }
 
 void displayCountdown(void) {
