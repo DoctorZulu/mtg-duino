@@ -444,20 +444,25 @@ void updatePlayerName(String playerName, Player &playerData) {
   playerData.name = playerName;
 }
 
-void setDisplayOptCent(const String &buf, int displayNumber, int textSize, char textColor, int x, int y) {
-  int16_t x1, y1;
-  uint16_t w, h;
-  displays[displayNumber].getTextBounds(buf, x, y, &x1, &y1, &w, &h);
-  displays[displayNumber].setCursor(x - w / y, 32);
+void setDisplayOpt(int displayNumber, int textSize, char textColor, int cursorX, int cursorY) {
 	displays[displayNumber].setTextSize(textSize);
 	displays[displayNumber].setTextColor(textColor);
-	//displays[displayNumber].setCursor(cursorX, cursorY);
+	displays[displayNumber].setCursor(cursorX, cursorY);
 }
 
-void setDisplayOpt(int displayNumber, int textSize, char textColor, int x, int y) {
-	displays[displayNumber].setTextSize(textSize);
+void drawCentered(const char *buf, int displayNumber, int textSize, char textColor, int x, int y) {
+  if (displayNumber < 0 || displayNumber > 1) {  // Check displayNumber bounds
+    Serial.println("Invalid display number");
+    return;
+  }
+
+  int16_t x1, y1;
+  uint16_t w, h;
+  displays[displayNumber].setTextSize(textSize);
 	displays[displayNumber].setTextColor(textColor);
-	displays[displayNumber].setCursor(x, y);
+  displays[displayNumber].getTextBounds(buf, x, y, &x1, &y1, &w, &h);
+  displays[displayNumber].setCursor(x - w / 2, y);
+	displays[displayNumber].print(buf);
 }
 
 void displayFirst(int displayNumber) {
@@ -468,8 +473,11 @@ void displayFirst(int displayNumber) {
   setDisplayOpt(1, 2, SSD1306_WHITE, 0, 5);
   if (displayNumber == 1) {
     tcaselect(players[1].display);
+    displays[1].clearDisplay();
     animateFirst(players[0].display);
   } else {
+    tcaselect(players[0].display);
+    displays[0].clearDisplay();
     animateFirst(players[1].display);
   };
   delay(5000);
@@ -528,25 +536,25 @@ void resetGame(void) {
 void displayCountdown(void) {
   tcaselect(players[0].display);
   displays[0].clearDisplay();
-  setDisplayOpt(0, 1, SSD1306_WHITE, 10, 5);
+  setDisplayOpt(0, 2, SSD1306_WHITE, 10, 5);
   displays[0].print("Rolling for first!");
   displays[0].display();
   tcaselect(players[1].display);
   displays[1].clearDisplay();
-  setDisplayOpt(1, 1, SSD1306_WHITE, 10, 5);
+  setDisplayOpt(1, 2, SSD1306_WHITE, 10, 5);
   displays[1].print("Rolling for first!");
   displays[1].display();
   delay(2000);
   for (int i = 5; i > 0; i--) {
     tcaselect(players[1].display);
     displays[0].clearDisplay();
-    setDisplayOpt(0, 3, SSD1306_WHITE, 50, 10);
-    displays[0].print(i);
+    char cBuffer[2];
+    itoa(i, cBuffer, 10);  // Convert to decimal string
+    drawCentered(cBuffer, 0, 3, SSD1306_WHITE, 64, 18);
     displays[0].display();
     tcaselect(players[0].display);
     displays[1].clearDisplay();
-    setDisplayOpt(1, 3, SSD1306_WHITE, 50, 10);
-    displays[1].print(i);
+    drawCentered(cBuffer, 1, 3, SSD1306_WHITE, 64, 18);
     displays[1].display();
     delay(500);
   }
@@ -601,24 +609,25 @@ void playResetMusic(void) {
 
 
 void displayPlayerData(Player &playerData) {
+  char cBuffer[6];  // Buffer large enough to hold a 16-bit integer (up to 5 digits) + null terminator
+  // Convert the 16-bit integer to a string
+  itoa(playerData.health, cBuffer, 10);  // Convert to decimal string
+  const char* nBuffer = playerData.name.c_str();
   displays[playerData.display].clearDisplay();
-  //String buf = String(playerData.health);
-  Serial.print("before cent");
-  setDisplayOptCent("name", playerData.display, 1, SSD1306_WHITE, 64, 0);
-  Serial.print("after name");
-  displays[playerData.display].print(playerData.name);
-  setDisplayOptCent("5", playerData.display, 3, SSD1306_WHITE, 64, 32);
-  Serial.print("after health");
-  displays[playerData.display].print(playerData.health);
+  //Serial.print(playerData.display);
+  drawCentered(nBuffer, playerData.display, 2, SSD1306_WHITE, 64, 1);
+  drawCentered(cBuffer, playerData.display, 3, SSD1306_WHITE, 64, 32);
   displays[playerData.display].display();
 }
 
 
 void displayPlayerCmdrDamage(Player &playerData) {
+  char cBuffer[6];  // Buffer large enough to hold a 16-bit integer (up to 5 digits) + null terminator
+  // Convert the 16-bit integer to a string
+  itoa(playerData.cmdr_damage, cBuffer, 10);  // Convert to decimal string
+  const char* nBuffer = playerData.name.c_str();
   displays[playerData.display].clearDisplay();
-  setDisplayOpt(playerData.display, 1.5, SSD1306_WHITE, 5, 10);
-  displays[playerData.display].print("CMDR:");
-  setDisplayOpt(playerData.display, 3, SSD1306_WHITE, 50, 10);
-  displays[playerData.display].print(playerData.cmdr_damage);
+  drawCentered("CMDR DMG", playerData.display, 2, SSD1306_WHITE, 64, 0);
+  drawCentered(cBuffer, playerData.display, 3, SSD1306_WHITE, 64, 32);
   displays[playerData.display].display();
 }
