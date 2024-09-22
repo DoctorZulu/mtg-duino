@@ -10,12 +10,15 @@
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include "vars.h"
+#include "FreeSans.h"
 #include <ESPAsyncWebServer.h>
 #include "pitches.h"
+#include <DFRobotDFPlayerMini.h>
+
 
 
 AsyncWebServer server(80);
-
+DFRobotDFPlayerMini myDFPlayer;
 const char* ssid = SSID;
 const char* password = PASSWORD;
 
@@ -57,6 +60,8 @@ Adafruit_SSD1306 displays[2] = { {SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET
 #define CMDR_DAMAGE 0 
 #define ALIVE true
 #define SCREEN_STATE 0
+// Create a HardwareSerial object for UART1
+HardwareSerial mySerial(1);
 
 struct Player
 {
@@ -67,8 +72,9 @@ struct Player
   int display;
   bool screenState;
 };
-Player players[2] = { {STARTING_HEALTH, CMDR_DAMAGE, ALIVE, "Player 1", 1, SCREEN_STATE}, {STARTING_HEALTH, CMDR_DAMAGE, ALIVE, "Player 2", 0, SCREEN_STATE} }; // Array of Player structs
+Player players[2] = { {STARTING_HEALTH, CMDR_DAMAGE, ALIVE, "Player1", 1, SCREEN_STATE}, {STARTING_HEALTH, CMDR_DAMAGE, ALIVE, "Player2", 0, SCREEN_STATE} }; // Array of Player structs
 bool showStart = false;
+bool applauseState = false;
 
 #define FRAME_DELAY (42)
 #define FRAME_WIDTH (64)
@@ -263,6 +269,7 @@ int returnRandomNumber(int numPlayers) {
 
 void setup() {
   Serial.begin(115200);
+  mySerial.begin(9600, SERIAL_8N1, D12, 11);
   Serial.print("setup online");
   button_timer = millis();   // start delay for non blocking functions
   animation_timer = millis();
@@ -299,7 +306,20 @@ void setup() {
     }
     request->send(200, "text/plain", "OK");
   });
-  playResetMusic();
+  if (!myDFPlayer.begin(mySerial)) {  //Use serial to communicate with mp3.
+    Serial.println(F("Unable to begin:"));
+    Serial.println(F("1.Please recheck the connection!"));
+    Serial.println(F("2.Please insert the SD card!"));
+    while(true){
+      delay(0); // Code to compatible with ESP8266 watch dog.
+    }
+  }
+  //myDFPlayer.next();
+  Serial.println(F("DFPlayer Mini online."));
+  
+  myDFPlayer.volume(25);  //Set volume value. From 0 to 30
+    //Play the first mp3
+  //playResetMusic();
   pinMode(player1Plus, INPUT_PULLUP);  
   pinMode(player1Minus, INPUT_PULLUP);
   pinMode(player1Alt, INPUT_PULLUP);
@@ -314,6 +334,7 @@ void setup() {
       Serial.print("Alloc failed");
       for(;;); // Don't proceed, loop forever
     }
+    //displays[i].setFont(Fonts/);
     // Show initial display buffer contents on the screen --
     // the library initializes this with an Adafruit splash screen.
   }
@@ -321,13 +342,79 @@ void setup() {
   server.begin();
 
   r_display = returnRandomNumber(2);
-
   delay(200);
 
 }
 
+void printDetail(uint8_t type, int value){
+  switch (type) {
+    case TimeOut:
+      Serial.println(F("Time Out!"));
+      break;
+    case WrongStack:
+      Serial.println(F("Stack Wrong!"));
+      break;
+    case DFPlayerCardInserted:
+      Serial.println(F("Card Inserted!"));
+      break;
+    case DFPlayerCardRemoved:
+      Serial.println(F("Card Removed!"));
+      break;
+    case DFPlayerCardOnline:
+      Serial.println(F("Card Online!"));
+      break;
+    case DFPlayerUSBInserted:
+      Serial.println("USB Inserted!");
+      break;
+    case DFPlayerUSBRemoved:
+      Serial.println("USB Removed!");
+      break;
+    case DFPlayerPlayFinished:
+      Serial.print(F("Number:"));
+      Serial.print(value);
+      Serial.println(F(" Play Finished!"));
+      break;
+    case DFPlayerError:
+      Serial.print(F("DFPlayerError:"));
+      switch (value) {
+        case Busy:
+          Serial.println(F("Card not found"));
+          break;
+        case Sleeping:
+          Serial.println(F("Sleeping"));
+          break;
+        case SerialWrongStack:
+          Serial.println(F("Get Wrong Stack"));
+          break;
+        case CheckSumNotMatch:
+          Serial.println(F("Check Sum Not Match"));
+          break;
+        case FileIndexOut:
+          Serial.println(F("File Index Out of Bound"));
+          break;
+        case FileMismatch:
+          Serial.println(F("Cannot Find File"));
+          break;
+        case Advertise:
+          Serial.println(F("In Advertise"));
+          break;
+        default:
+          break;
+      }
+      break;
+    default:
+      break;
+  }
+
+}
+
+
+
 void loop() {
   unsigned long currentTime = millis();
+  if (myDFPlayer.available()) {
+    printDetail(myDFPlayer.readType(), myDFPlayer.read()); //Print the detail message from DFPlayer to handle different errors and states.
+  }
   displays[0].clearDisplay();
   displays[1].clearDisplay();
 
@@ -338,33 +425,37 @@ void loop() {
   }
   //handle non blocking first/second animations
   if (display_first == true && ((currentTime - animation_timer) >= FRAME_DELAY)) {
-      tcaselect(r_display);
-      displays[r_display].clearDisplay();
-      displays[r_display].drawBitmap(32, 0, first_frames[frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
-      displays[r_display].display();
-      if (r_display == 1) {
-        tcaselect(0);
-        displays[0].clearDisplay();
-        displays[0].drawBitmap(32, 0, second_frames[frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
-        displays[0].display();
+    if (applauseState == false) {
+      playApplause();
+      applauseState = true;
+    }
+    tcaselect(r_display);
+    displays[r_display].clearDisplay();
+    displays[r_display].drawBitmap(32, 0, first_frames[frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
+    displays[r_display].display();
+    if (r_display == 1) {
+      tcaselect(0);
+      displays[0].clearDisplay();
+      displays[0].drawBitmap(32, 0, second_frames[frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
+      displays[0].display();
+    } else {
+      tcaselect(1);
+      displays[1].clearDisplay();
+      displays[1].drawBitmap(32, 0, second_frames[frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
+      displays[1].display();
+    }
+    frame++;
+    if (frame == FRAME_COUNT_FIRST) {
+      if (animate_r <= 3) {
+        animate_r++;
+        frame = 0;
       } else {
-        tcaselect(1);
-        displays[1].clearDisplay();
-        displays[1].drawBitmap(32, 0, second_frames[frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
-        displays[1].display();
+        display_first = false;
+        animate_r = 0;
+        frame = 0;
       }
-      frame++;
-      if (frame == FRAME_COUNT_FIRST) {
-        if (animate_r <= 3) {
-          animate_r++;
-          frame = 0;
-        } else {
-          display_first = false;
-          animate_r = 0;
-          frame = 0;
-        }
-      }
-      animation_timer = currentTime;
+    }
+    animation_timer = currentTime;
   }
 
   //Handle main health displays
@@ -391,15 +482,18 @@ void loop() {
     Serial.println("screenstate changed p1");
     toggleScreen(players[0]);
     button_timer = currentTime;
+    playSwoosh();
   }
   if (digitalRead(player2Alt) == LOW && ((currentTime - button_timer) >= delay_interval))
   {
     Serial.println("screenstate changed");
     toggleScreen(players[1]);
     button_timer = currentTime;
+    playSwoosh();
   }
   if (digitalRead(player1Plus) == LOW && ((currentTime - button_timer) >= delay_interval))
   {
+    playBeep();
     if (players[0].screenState == 0) {
       incrementPlayerHealth(players[0]);
     } else {
@@ -409,6 +503,7 @@ void loop() {
   }
   if (digitalRead(player1Minus) == LOW && ((currentTime - button_timer) >= delay_interval))
   {
+    playBeep();
     if (players[0].screenState == 0) {
       decrementPlayerHealth(players[0]);
     } else {
@@ -418,6 +513,7 @@ void loop() {
   }
   if (digitalRead(player2Plus) == LOW && ((currentTime - button_timer) >= delay_interval))
   {
+    playBeep();
     if (players[1].screenState == 0) {
       incrementPlayerHealth(players[1]);
     } else {
@@ -427,6 +523,7 @@ void loop() {
   }
   if (digitalRead(player2Minus) == LOW && ((currentTime - button_timer) >= delay_interval))
   {
+    playBeep();
     if (players[1].screenState == 0) {
       decrementPlayerHealth(players[1]);
     } else {
@@ -455,7 +552,6 @@ void drawCentered(const char *buf, int displayNumber, int textSize, char textCol
     Serial.println("Invalid display number");
     return;
   }
-
   int16_t x1, y1;
   uint16_t w, h;
   displays[displayNumber].setTextSize(textSize);
@@ -531,6 +627,7 @@ void resetGame(void) {
   display_first = true;
   frame = 0;
   animate_r = 0;
+  applauseState = false;
 }
 
 void displayCountdown(void) {
@@ -546,6 +643,7 @@ void displayCountdown(void) {
   displays[1].display();
   delay(2000);
   for (int i = 5; i > 0; i--) {
+    playBeep();
     tcaselect(players[1].display);
     displays[0].clearDisplay();
     char cBuffer[2];
@@ -561,8 +659,8 @@ void displayCountdown(void) {
 }
 
 void animateDeath(int displayNumber) {
-  int frame = 0;
   playDeathMusic();
+  int frame = 0;
   tcaselect(displayNumber);
   for (int i = 0; i <= FRAME_COUNT_DEATH * 4; i++) {
     displays[displayNumber].clearDisplay();
@@ -593,12 +691,12 @@ void animateFirst(int displayNumber) {
   }
 }
 
-void playDeathMusic(void) {
+/* void playDeathMusic(void) {
   for (int i = 0; i < 12; i++) {
     tone(buzzerPin, deathMelody[i], deathRhythm[i]);
     //delay(deathRhythm[i]);
   }
-}
+} */
 
 void playResetMusic(void) {
   for (int i = 0; i < 4; i++) {
@@ -615,7 +713,7 @@ void displayPlayerData(Player &playerData) {
   const char* nBuffer = playerData.name.c_str();
   displays[playerData.display].clearDisplay();
   //Serial.print(playerData.display);
-  drawCentered(nBuffer, playerData.display, 2, SSD1306_WHITE, 64, 1);
+  drawCentered(nBuffer, playerData.display, 1, SSD1306_WHITE, 64, 1);
   drawCentered(cBuffer, playerData.display, 3, SSD1306_WHITE, 64, 32);
   displays[playerData.display].display();
 }
@@ -630,4 +728,20 @@ void displayPlayerCmdrDamage(Player &playerData) {
   drawCentered("CMDR DMG", playerData.display, 2, SSD1306_WHITE, 64, 0);
   drawCentered(cBuffer, playerData.display, 3, SSD1306_WHITE, 64, 32);
   displays[playerData.display].display();
+}
+
+void playDeathMusic(void) {
+  myDFPlayer.play(1);
+}
+
+void playSwoosh(void) {
+  myDFPlayer.play(2);
+}
+
+void playBeep(void) {
+  myDFPlayer.play(3);
+}
+
+void playApplause(void) {
+  myDFPlayer.play(4);
 }
