@@ -74,6 +74,7 @@ struct Player
 };
 Player players[2] = { {STARTING_HEALTH, CMDR_DAMAGE, ALIVE, "Player1", 1, SCREEN_STATE}, {STARTING_HEALTH, CMDR_DAMAGE, ALIVE, "Player2", 0, SCREEN_STATE} }; // Array of Player structs
 bool showStart = false;
+bool applauseState = false;
 
 #define FRAME_DELAY (42)
 #define FRAME_WIDTH (64)
@@ -424,33 +425,37 @@ void loop() {
   }
   //handle non blocking first/second animations
   if (display_first == true && ((currentTime - animation_timer) >= FRAME_DELAY)) {
-      tcaselect(r_display);
-      displays[r_display].clearDisplay();
-      displays[r_display].drawBitmap(32, 0, first_frames[frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
-      displays[r_display].display();
-      if (r_display == 1) {
-        tcaselect(0);
-        displays[0].clearDisplay();
-        displays[0].drawBitmap(32, 0, second_frames[frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
-        displays[0].display();
+    if (applauseState == false) {
+      playApplause();
+      applauseState = true;
+    }
+    tcaselect(r_display);
+    displays[r_display].clearDisplay();
+    displays[r_display].drawBitmap(32, 0, first_frames[frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
+    displays[r_display].display();
+    if (r_display == 1) {
+      tcaselect(0);
+      displays[0].clearDisplay();
+      displays[0].drawBitmap(32, 0, second_frames[frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
+      displays[0].display();
+    } else {
+      tcaselect(1);
+      displays[1].clearDisplay();
+      displays[1].drawBitmap(32, 0, second_frames[frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
+      displays[1].display();
+    }
+    frame++;
+    if (frame == FRAME_COUNT_FIRST) {
+      if (animate_r <= 3) {
+        animate_r++;
+        frame = 0;
       } else {
-        tcaselect(1);
-        displays[1].clearDisplay();
-        displays[1].drawBitmap(32, 0, second_frames[frame], FRAME_WIDTH, FRAME_HEIGHT, 1);
-        displays[1].display();
+        display_first = false;
+        animate_r = 0;
+        frame = 0;
       }
-      frame++;
-      if (frame == FRAME_COUNT_FIRST) {
-        if (animate_r <= 3) {
-          animate_r++;
-          frame = 0;
-        } else {
-          display_first = false;
-          animate_r = 0;
-          frame = 0;
-        }
-      }
-      animation_timer = currentTime;
+    }
+    animation_timer = currentTime;
   }
 
   //Handle main health displays
@@ -477,17 +482,18 @@ void loop() {
     Serial.println("screenstate changed p1");
     toggleScreen(players[0]);
     button_timer = currentTime;
-    myDFPlayer.play(1);
+    playSwoosh();
   }
   if (digitalRead(player2Alt) == LOW && ((currentTime - button_timer) >= delay_interval))
   {
     Serial.println("screenstate changed");
     toggleScreen(players[1]);
     button_timer = currentTime;
-    myDFPlayer.play(1);
+    playSwoosh();
   }
   if (digitalRead(player1Plus) == LOW && ((currentTime - button_timer) >= delay_interval))
   {
+    playBeep();
     if (players[0].screenState == 0) {
       incrementPlayerHealth(players[0]);
     } else {
@@ -497,6 +503,7 @@ void loop() {
   }
   if (digitalRead(player1Minus) == LOW && ((currentTime - button_timer) >= delay_interval))
   {
+    playBeep();
     if (players[0].screenState == 0) {
       decrementPlayerHealth(players[0]);
     } else {
@@ -506,6 +513,7 @@ void loop() {
   }
   if (digitalRead(player2Plus) == LOW && ((currentTime - button_timer) >= delay_interval))
   {
+    playBeep();
     if (players[1].screenState == 0) {
       incrementPlayerHealth(players[1]);
     } else {
@@ -515,6 +523,7 @@ void loop() {
   }
   if (digitalRead(player2Minus) == LOW && ((currentTime - button_timer) >= delay_interval))
   {
+    playBeep();
     if (players[1].screenState == 0) {
       decrementPlayerHealth(players[1]);
     } else {
@@ -618,6 +627,7 @@ void resetGame(void) {
   display_first = true;
   frame = 0;
   animate_r = 0;
+  applauseState = false;
 }
 
 void displayCountdown(void) {
@@ -633,6 +643,7 @@ void displayCountdown(void) {
   displays[1].display();
   delay(2000);
   for (int i = 5; i > 0; i--) {
+    playBeep();
     tcaselect(players[1].display);
     displays[0].clearDisplay();
     char cBuffer[2];
@@ -721,4 +732,16 @@ void displayPlayerCmdrDamage(Player &playerData) {
 
 void playDeathMusic(void) {
   myDFPlayer.play(1);
+}
+
+void playSwoosh(void) {
+  myDFPlayer.play(2);
+}
+
+void playBeep(void) {
+  myDFPlayer.play(3);
+}
+
+void playApplause(void) {
+  myDFPlayer.play(4);
 }
