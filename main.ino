@@ -555,10 +555,10 @@ void drawCentered(const char *buf, int displayNumber, int textSize, char textCol
   int16_t x1, y1;
   uint16_t w, h;
   displays[displayNumber].setTextSize(textSize);
-	displays[displayNumber].setTextColor(textColor);
+  displays[displayNumber].setTextColor(textColor);
   displays[displayNumber].getTextBounds(buf, x, y, &x1, &y1, &w, &h);
   displays[displayNumber].setCursor(x - w / 2, y);
-	displays[displayNumber].print(buf);
+  displays[displayNumber].print(buf);
 }
 
 void displayFirst(int displayNumber) {
